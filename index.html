@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hệ Thống Đánh Giá Năng Lực Pickleball</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root { --p-green: #b4d330; }
+    .bg-sport { background-color: var(--p-green); }
+    .text-sport { color: var(--p-green); }
+    .border-sport { border-color: var(--p-green); }
+    
+    .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.9); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; }
+    .loader { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--p-green); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    .star-rating i { color: #d1d5db; cursor: pointer; font-size: 1.5rem; transition: 0.2s; }
+    .star-rating i.active, .star-rating i:hover { color: #f59e0b; }
+    
+    .a4-container { width: 210mm; min-height: 297mm; padding: 20mm; margin: 0 auto; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    @media print { .a4-container { box-shadow: none; margin: 0; width: 100%; } body { background: white; } .no-print { display: none !important; } }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+  <!-- Loading -->
+  <div id="loading" class="loading-overlay">
+    <div class="loader mb-4"></div>
+    <p class="font-semibold text-gray-600 animate-pulse">Đang xử lý dữ liệu...</p>
+  </div>
+
+  <!-- Login Section -->
+  <section id="login-sec" class="min-h-screen flex items-center justify-center hidden">
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border-t-4 border-sport">
+      <h2 class="text-2xl font-bold text-center mb-6 text-slate-800">Đăng Nhập Hệ Thống<br><span class="text-sport text-xl">Pickleball Eval</span></h2>
+      <form id="login-form" class="space-y-4">
+        <div><label class="block text-sm font-medium">Tên đăng nhập</label><input type="text" id="username" class="mt-1 w-full border rounded p-2 focus:ring-2 focus:ring-sport" required></div>
+        <div><label class="block text-sm font-medium">Mật khẩu</label><input type="password" id="password" class="mt-1 w-full border rounded p-2 focus:ring-2 focus:ring-sport" required></div>
+        <button type="submit" class="w-full bg-sport text-slate-900 font-bold py-2 rounded hover:brightness-105 transition">Đăng nhập</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Dashboard Section -->
+  <section id="dash-sec" class="hidden max-w-6xl mx-auto p-4 md:p-8">
+    <div class="flex justify-between items-center mb-8">
+      <h1 class="text-3xl font-bold text-slate-800 border-l-4 border-sport pl-3">Danh sách Báo cáo</h1>
+      <div>
+        <button onclick="showForm()" class="bg-sport text-slate-900 font-bold px-4 py-2 rounded mr-2"><i class="fas fa-plus mr-1"></i> Tạo mới</button>
+        <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded"><i class="fas fa-sign-out-alt"></i></button>
+      </div>
+    </div>
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-slate-800 text-white"><tr><th class="p-3">Mã BC</th><th class="p-3">Học viên</th><th class="p-3">SĐT</th><th class="p-3">Ngày đánh giá</th><th class="p-3 text-center">Thao tác</th></tr></thead>
+        <tbody id="report-list" class="divide-y"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Form Section -->
+  <section id="form-sec" class="hidden max-w-4xl mx-auto p-4 md:p-8">
+    <button onclick="showDash()" class="text-gray-500 mb-4 hover:text-gray-800"><i class="fas fa-arrow-left"></i> Quay lại</button>
+    <div class="bg-white p-6 rounded-lg shadow-lg">
+      <h2 class="text-2xl font-bold mb-6 border-b pb-2" id="form-title">Tạo báo cáo mới</h2>
+      <form id="report-form">
+        <input type="hidden" id="MaBaoCao">
+        
+        <!-- Step 1 -->
+        <div id="step-1">
+          <h3 class="text-lg font-bold bg-sport text-slate-900 p-2 rounded mb-4">Phần 1: Thông tin học viên</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label class="block text-sm">Tên học viên *</label><input type="text" id="TenHocVien" required class="w-full border p-2 rounded mt-1"></div>
+            <div><label class="block text-sm">Số điện thoại *</label><input type="tel" pattern="[0-9]{10,11}" id="SoDienThoai" required class="w-full border p-2 rounded mt-1"></div>
+            <div><label class="block text-sm">Ngày đánh giá</label><input type="date" id="NgayDanhGia" required class="w-full border p-2 rounded mt-1"></div>
+            <div><label class="block text-sm">Thời gian đã chơi</label><input type="text" id="ThoiGianDaChoi" class="w-full border p-2 rounded mt-1"></div>
+            <div><label class="block text-sm">Kinh nghiệm thể thao</label><input type="text" id="KinhNghiemTheThao" class="w-full border p-2 rounded mt-1"></div>
+            <div><label class="block text-sm">Tần suất hiện tại (buổi/tuần)</label><input type="number" id="TanSuatHienTai" class="w-full border p-2 rounded mt-1"></div>
+            <div><label class="block text-sm">Tay thuận</label><select id="TayThuan" class="w-full border p-2 rounded mt-1"><option>Tay phải</option><option>Tay trái</option></select></div>
+            <div><label class="block text-sm">Hình thức chơi</label><select id="HinhThucChoi" class="w-full border p-2 rounded mt-1"><option>Giải trí</option><option>Giao lưu</option><option>Thi đấu</option></select></div>
+            <div><label class="block text-sm">Thời lượng buổi đánh giá (phút)</label><input type="number" id="ThoiLuongBuoiDanhGia" class="w-full border p-2 rounded mt-1"></div>
+          </div>
+          <div class="mt-4 space-y-4">
+            <div><label class="block text-sm">Mục tiêu học viên</label><textarea id="MucTieuHocVien" class="w-full border p-2 rounded mt-1"></textarea></div>
+            <div><label class="block text-sm">Mục tiêu ưu tiên</label><textarea id="MucTieuUuTienHocVien" class="w-full border p-2 rounded mt-1"></textarea></div>
+            <div><label class="block text-sm">Mục tiêu khác</label><textarea id="MucTieuKhac" class="w-full border p-2 rounded mt-1"></textarea></div>
+          </div>
+          <div class="mt-6 flex justify-end"><button type="button" onclick="nextStep()" class="bg-blue-600 text-white px-6 py-2 rounded">Tiếp tục <i class="fas fa-arrow-right"></i></button></div>
+        </div>
+
+        <!-- Step 2 -->
+        <div id="step-2" class="hidden">
+          <h3 class="text-lg font-bold bg-sport text-slate-900 p-2 rounded mb-4">Phần 2: Nhận định tổng quan & Chỉ số</h3>
+          <div class="grid grid-cols-1 gap-4 mb-6">
+            <div><label class="block text-sm">Nền tảng</label><select id="TQ_NenTang" class="w-full border p-2 rounded mt-1"><option>Mới bắt đầu</option><option>Cơ bản</option><option>Khá</option><option>Trung cấp</option><option>Nâng cao</option></select></div>
+            <div><label class="block text-sm text-gray-500">Điểm mạnh (phân cách bằng dấu ; )</label><textarea id="TQ_DiemManh" class="w-full border p-2 rounded mt-1"></textarea></div>
+            <div><label class="block text-sm text-gray-500">Điểm yếu (phân cách bằng dấu ; )</label><textarea id="TQ_DiemYeu" class="w-full border p-2 rounded mt-1"></textarea></div>
+          </div>
+          <h4 class="font-bold mb-2">Đánh giá chỉ số (5 Sao)</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4" id="star-container">
+            <!-- Stars JS Render -->
+          </div>
+          <div class="mt-6 flex justify-between">
+            <button type="button" onclick="prevStep()" class="bg-gray-400 text-white px-6 py-2 rounded"><i class="fas fa-arrow-left"></i> Quay lại</button>
+            <button type="submit" class="bg-green-600 text-white font-bold px-6 py-2 rounded"><i class="fas fa-save"></i> Hoàn thành & Lưu</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- View Report Section (A4) -->
+  <section id="view-sec" class="hidden p-4 bg-gray-200 min-h-screen">
+    <div class="max-w-4xl mx-auto flex gap-2 justify-end mb-4 no-print" id="view-controls">
+      <button onclick="showDash()" class="bg-gray-600 text-white px-4 py-2 rounded"><i class="fas fa-home"></i> Trang chủ</button>
+      <button onclick="editCurrentReport()" class="bg-blue-600 text-white px-4 py-2 rounded" id="btn-edit"><i class="fas fa-edit"></i> Sửa</button>
+      <button onclick="exportPDF()" class="bg-red-600 text-white px-4 py-2 rounded"><i class="fas fa-file-pdf"></i> Tải PDF</button>
+      <button onclick="shareLink()" class="bg-sport text-slate-900 font-bold px-4 py-2 rounded"><i class="fas fa-link"></i> Copy Link</button>
+    </div>
+    
+    <div id="a4-report" class="a4-container text-slate-800">
+      <div class="border-b-4 border-sport pb-6 mb-6 flex justify-between items-end">
+        <div>
+          <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">BÁO CÁO ĐÁNH GIÁ NĂNG LỰC</h1>
+          <h2 class="text-xl font-bold text-sport mt-1">PICKLEBALL ACADEMY</h2>
+        </div>
+        <div class="text-right text-sm">
+          <p><strong>Ngày ĐG:</strong> <span id="v-ngay"></span></p>
+          <p><strong>Mã BC:</strong> <span id="v-ma"></span></p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-8 mb-8">
+        <div>
+          <h3 class="font-bold text-lg border-l-4 border-sport pl-2 mb-3 bg-gray-100 p-1">1. THÔNG TIN HỌC VIÊN</h3>
+          <ul class="space-y-2 text-sm">
+            <li><strong>Họ & Tên:</strong> <span id="v-ten" class="text-lg text-blue-700 font-bold uppercase"></span></li>
+            <li><strong>Số điện thoại:</strong> <span id="v-sdt"></span></li>
+            <li><strong>Hình thức:</strong> <span id="v-hinhthuc"></span> | <strong>Tay thuận:</strong> <span id="v-tay"></span></li>
+            <li><strong>Kinh nghiệm TT:</strong> <span id="v-kn"></span></li>
+            <li><strong>Thời gian chơi PB:</strong> <span id="v-tg"></span> (Tần suất: <span id="v-ts"></span>)</li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-bold text-lg border-l-4 border-sport pl-2 mb-3 bg-gray-100 p-1">MỤC TIÊU</h3>
+          <div class="text-sm bg-blue-50 p-3 rounded h-full">
+            <p><strong>Ưu tiên:</strong> <span id="v-mtuu"></span></p>
+            <p class="mt-2"><strong>Tổng quát:</strong> <span id="v-mt"></span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-8">
+        <h3 class="font-bold text-lg border-l-4 border-sport pl-2 mb-3 bg-gray-100 p-1">2. NHẬN ĐỊNH TỔNG QUAN</h3>
+        <p class="mb-3 text-sm"><strong>Nền tảng:</strong> <span id="v-nentang" class="bg-sport text-slate-900 px-2 py-1 rounded font-bold"></span></p>
+        <div class="grid grid-cols-2 gap-6 text-sm">
+          <div class="bg-green-50 p-4 rounded border border-green-200">
+            <h4 class="font-bold text-green-700 mb-2"><i class="fas fa-plus-circle"></i> ĐIỂM MẠNH</h4>
+            <ul id="v-diemmanh" class="list-disc pl-4 space-y-1"></ul>
+          </div>
+          <div class="bg-red-50 p-4 rounded border border-red-200">
+            <h4 class="font-bold text-red-700 mb-2"><i class="fas fa-minus-circle"></i> ĐIỂM YẾU</h4>
+            <ul id="v-diemyeu" class="list-disc pl-4 space-y-1"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="font-bold text-lg border-l-4 border-sport pl-2 mb-3 bg-gray-100 p-1">3. BIỂU ĐỒ CHỈ SỐ NĂNG LỰC</h3>
+        <div class="w-full flex justify-center mt-6 h-80">
+          <canvas id="radarChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+<script>
+  // ĐIỀN URL WEB APP GOOGLE APPS SCRIPT VÀO ĐÂY
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzob19qGqg-CXvYLLoau0EtSmeCGHLiJTUwOpVGfTbMOfE-TNHMD_Lcb5UScf5zAHrpag/exec'; 
+
+  const metrics = [
+    {id: 'CS_KyThuatCoBan', name: 'Kỹ thuật cơ bản'}, {id: 'CS_DoOnDinh', name: 'Độ ổn định'},
+    {id: 'CS_FootworkThangBang', name: 'Footwork & Thăng bằng'}, {id: 'CS_KiemSoatBongMem', name: 'Kiểm soát bóng mềm'},
+    {id: 'CS_KhaNangTanCong', name: 'Khả năng tấn công'}, {id: 'CS_PhongThuReset', name: 'Phòng thủ & Reset'},
+    {id: 'CS_TuDuyChienThuat', name: 'Tư duy chiến thuật'}, {id: 'CS_PhoiHopDanhDoi', name: 'Phối hợp đánh đôi'},
+    {id: 'CS_TamLyVaKiemSoatLoi', name: 'Tâm lý & KS Lỗi'}, {id: 'CS_KhaNangTiepThu', name: 'Khả năng tiếp thu'}
+  ];
+  let currentReportData = null;
+  let chartInstance = null;
+
+  // Khởi tạo giao diện
+  window.onload = () => {
+    renderStars();
+    const urlParams = new URLSearchParams(window.location.search);
+    const publicId = urlParams.get('id');
+    
+    if (publicId) {
+      document.getElementById('view-controls').innerHTML = `<button onclick="exportPDF()" class="bg-red-600 text-white px-4 py-2 rounded"><i class="fas fa-file-pdf"></i> Tải PDF</button>`;
+      loadReportData(publicId, true);
+    } else {
+      if (localStorage.getItem('pb_user')) showDash();
+      else switchSec('login-sec');
+    }
+  };
+
+  function switchSec(id) {
+    ['login-sec', 'dash-sec', 'form-sec', 'view-sec'].forEach(s => document.getElementById(s).classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+  }
+  function showLoading(state) { document.getElementById('loading').style.display = state ? 'flex' : 'none'; }
+  function logout() { localStorage.removeItem('pb_user'); window.location.href = '?'; }
+
+  // Giao tiếp Backend
+  async function apiCall(action, data = {}) {
+    showLoading(true);
+    try {
+      let res = await fetch(WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action, data })
+      });
+      let json = await res.json();
+      showLoading(false);
+      return json;
+    } catch(e) {
+      showLoading(false);
+      alert('Lỗi kết nối máy chủ!'); return { success: false };
+    }
+  }
+
+  // Auth
+  document.getElementById('login-form').onsubmit = async (e) => {
+    e.preventDefault();
+    let u = document.getElementById('username').value;
+    let p = document.getElementById('password').value;
+    let md5p = CryptoJS.MD5(p).toString();
+    
+    let res = await apiCall('login', {username: u, password: md5p});
+    if (res.success) {
+      localStorage.setItem('pb_user', JSON.stringify(res.user));
+      showDash();
+    } else alert(res.message);
+  };
+
+  // Dashboard
+  async function showDash() {
+    switchSec('dash-sec');
+    let res = await apiCall('getReports');
+    if (res.success) {
+      const tbody = document.getElementById('report-list');
+      tbody.innerHTML = res.data.map(r => `
+        <tr class="hover:bg-gray-50">
+          <td class="p-3 border-b text-blue-600 font-bold cursor-pointer" onclick="loadReportData('${r.MaBaoCao}')">${r.MaBaoCao}</td>
+          <td class="p-3 border-b">${r.TenHocVien}</td>
+          <td class="p-3 border-b">${r.SoDienThoai}</td>
+          <td class="p-3 border-b">${new Date(r.NgayDanhGia).toLocaleDateString('vi-VN')}</td>
+          <td class="p-3 border-b text-center">
+            <button onclick="loadReportData('${r.MaBaoCao}')" class="text-blue-500 mr-3" title="Xem"><i class="fas fa-eye"></i></button>
+            <button onclick="deleteRep('${r.MaBaoCao}')" class="text-red-500" title="Xoá"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>
+      `).join('');
+    }
+  }
+
+  // Form Xử lý
+  function showForm(isEdit = false) {
+    switchSec('form-sec');
+    document.getElementById('step-1').classList.remove('hidden');
+    document.getElementById('step-2').classList.add('hidden');
+    if (!isEdit) {
+      document.getElementById('report-form').reset();
+      document.getElementById('MaBaoCao').value = '';
+      document.getElementById('form-title').innerText = 'Tạo Báo Cáo Mới';
+      document.getElementById('NgayDanhGia').valueAsDate = new Date();
+      resetStars();
+    } else {
+      document.getElementById('form-title').innerText = 'Chỉnh sửa Báo Cáo: ' + currentReportData.MaBaoCao;
+    }
+  }
+  function nextStep() {
+    if(!document.getElementById('TenHocVien').checkValidity() || !document.getElementById('SoDienThoai').checkValidity()){
+      alert("Vui lòng nhập đúng Tên học viên và Số điện thoại hợp lệ."); return;
+    }
+    document.getElementById('step-1').classList.add('hidden');
+    document.getElementById('step-2').classList.remove('hidden');
+  }
+  function prevStep() {
+    document.getElementById('step-2').classList.add('hidden');
+    document.getElementById('step-1').classList.remove('hidden');
+  }
+
+  // Render Rating 5 sao
+  function renderStars() {
+    const container = document.getElementById('star-container');
+    container.innerHTML = metrics.map(m => `
+      <div class="flex justify-between items-center bg-gray-50 p-2 rounded border">
+        <span class="text-sm font-medium">${m.name}</span>
+        <div class="star-rating" data-id="${m.id}" data-val="0">
+          ${[1,2,3,4,5].map(i => `<i class="fas fa-star" onclick="setStar('${m.id}', ${i})"></i>`).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+  function setStar(id, val) {
+    const parent = document.querySelector(`.star-rating[data-id="${id}"]`);
+    parent.dataset.val = val;
+    let stars = parent.querySelectorAll('i');
+    stars.forEach((s, idx) => { s.classList.toggle('active', idx < val); });
+  }
+  function resetStars() { metrics.forEach(m => setStar(m.id, 0)); }
+
+  // Submit
+  document.getElementById('report-form').onsubmit = async (e) => {
+    e.preventDefault();
+    let data = { MaBaoCao: document.getElementById('MaBaoCao').value };
+    ['TenHocVien','SoDienThoai','NgayDanhGia','ThoiGianDaChoi','KinhNghiemTheThao','TanSuatHienTai',
+     'TayThuan','HinhThucChoi','ThoiLuongBuoiDanhGia','MucTieuHocVien','MucTieuUuTienHocVien','MucTieuKhac',
+     'TQ_NenTang','TQ_DiemManh','TQ_DiemYeu'].forEach(k => { data[k] = document.getElementById(k).value; });
+    
+    metrics.forEach(m => { data[m.id] = document.querySelector(`.star-rating[data-id="${m.id}"]`).dataset.val; });
+
+    let res = await apiCall('saveReport', data);
+    if(res.success) {
+      alert("Đã lưu báo cáo thành công!");
+      showDash();
+    } else alert(res.message);
+  };
+
+  async function deleteRep(id) {
+    if(confirm(`Bạn có chắc muốn xoá báo cáo ${id}?`)) {
+      let res = await apiCall('deleteReport', {id});
+      if(res.success) showDash(); else alert(res.message);
+    }
+  }
+
+  // View Report (A4)
+  async function loadReportData(id, isPublic = false) {
+    let res = await apiCall('getReportById', {id});
+    if(res.success) {
+      currentReportData = res.data;
+      switchSec('view-sec');
+      fillReportUI(res.data);
+      renderChart(res.data);
+    } else {
+      alert("Không tìm thấy báo cáo!");
+      if(!isPublic) showDash();
+    }
+  }
+
+  function fillReportUI(d) {
+    document.getElementById('v-ma').innerText = d.MaBaoCao;
+    document.getElementById('v-ngay').innerText = new Date(d.NgayDanhGia).toLocaleDateString('vi-VN');
+    document.getElementById('v-ten').innerText = d.TenHocVien;
+    document.getElementById('v-sdt').innerText = d.SoDienThoai;
+    document.getElementById('v-hinhthuc').innerText = d.HinhThucChoi;
+    document.getElementById('v-tay').innerText = d.TayThuan;
+    document.getElementById('v-kn').innerText = d.KinhNghiemTheThao || '-';
+    document.getElementById('v-tg').innerText = d.ThoiGianDaChoi || '-';
+    document.getElementById('v-ts').innerText = (d.TanSuatHienTai || '0') + ' buổi/tuần';
+    document.getElementById('v-mtuu').innerText = d.MucTieuUuTienHocVien || '-';
+    document.getElementById('v-mt').innerText = d.MucTieuHocVien || '-';
+    document.getElementById('v-nentang').innerText = d.TQ_NenTang;
+    
+    document.getElementById('v-diemmanh').innerHTML = (d.TQ_DiemManh || '').split(';').map(x => x.trim()).filter(x=>x).map(x=>`<li>${x}</li>`).join('');
+    document.getElementById('v-diemyeu').innerHTML = (d.TQ_DiemYeu || '').split(';').map(x => x.trim()).filter(x=>x).map(x=>`<li>${x}</li>`).join('');
+  }
+
+  function renderChart(d) {
+    if(chartInstance) chartInstance.destroy();
+    const ctx = document.getElementById('radarChart').getContext('2d');
+    
+    let labels = metrics.map(m => m.name);
+    let vals = metrics.map(m => d[m.id] || 0);
+
+    chartInstance = new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Mức độ', data: vals,
+          backgroundColor: 'rgba(180, 211, 48, 0.4)', borderColor: '#b4d330', pointBackgroundColor: '#1e293b',
+          pointBorderColor: '#fff', borderWidth: 2, pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { r: { min: 0, max: 5, ticks: { stepSize: 1, display: false }, pointLabels: { font: { size: 12, weight: 'bold' } } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  function editCurrentReport() {
+    showForm(true);
+    let d = currentReportData;
+    ['MaBaoCao','TenHocVien','SoDienThoai','ThoiGianDaChoi','KinhNghiemTheThao','TanSuatHienTai',
+     'TayThuan','HinhThucChoi','ThoiLuongBuoiDanhGia','MucTieuHocVien','MucTieuUuTienHocVien','MucTieuKhac',
+     'TQ_NenTang','TQ_DiemManh','TQ_DiemYeu'].forEach(k => { document.getElementById(k).value = d[k]; });
+    
+    let dateStr = new Date(d.NgayDanhGia);
+    document.getElementById('NgayDanhGia').value = dateStr.toISOString().split('T')[0];
+    metrics.forEach(m => { setStar(m.id, parseInt(d[m.id]) || 0); });
+  }
+
+  function exportPDF() {
+    const element = document.getElementById('a4-report');
+    const opt = {
+      margin: 0, filename: `BaoCao_${currentReportData.MaBaoCao}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
+  }
+
+  function shareLink() {
+    const link = window.location.origin + window.location.pathname + '?id=' + currentReportData.MaBaoCao;
+    navigator.clipboard.writeText(link).then(() => { alert("Đã copy link báo cáo!"); });
+  }
+</script>
+</body>
+</html>
