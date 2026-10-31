@@ -4,110 +4,210 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hệ Thống Đánh Giá Năng Lực Pickleball</title>
+  
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Roboto & Material Symbols -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  
+  <!-- Thư viện chức năng -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
   <style>
-    :root { --p-green: #b4d330; }
-    .bg-sport { background-color: var(--p-green); }
-    .text-sport { color: var(--p-green); }
-    .border-sport { border-color: var(--p-green); }
+    body { font-family: 'Roboto', sans-serif; background-color: #f8fafc; color: #1e293b; }
     
-    .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.9); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; }
-    .loader { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--p-green); border-radius: 50%; animation: spin 1s linear infinite; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    /* Material Design Input */
+    .md-input {
+      width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 16px;
+      font-size: 16px; transition: all 0.2s ease; background-color: #fff;
+    }
+    .md-input:focus { border-color: #10b981; outline: none; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
+    .md-label { display: block; font-size: 14px; font-weight: 500; color: #475569; margin-bottom: 6px; }
     
-    .star-rating i { color: #d1d5db; cursor: pointer; font-size: 1.5rem; transition: 0.2s; }
-    .star-rating i.active, .star-rating i:hover { color: #f59e0b; }
-    
-    .a4-container { width: 210mm; min-height: 297mm; padding: 20mm; margin: 0 auto; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    @media print { .a4-container { box-shadow: none; margin: 0; width: 100%; } body { background: white; } .no-print { display: none !important; } }
+    /* Material Button */
+    .md-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 24px; border-radius: 100px; font-weight: 500; font-size: 15px;
+      transition: all 0.2s ease; cursor: pointer; letter-spacing: 0.2px;
+    }
+    .md-btn-primary { background-color: #10b981; color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
+    .md-btn-primary:hover { background-color: #059669; box-shadow: 0 4px 6px rgba(0,0,0,0.15); }
+    .md-btn-outline { border: 1px solid #cbd5e1; color: #475569; background: transparent; }
+    .md-btn-outline:hover { background-color: #f1f5f9; }
+    .md-btn-danger { background-color: #ef4444; color: white; }
+    .md-btn-danger:hover { background-color: #dc2626; box-shadow: 0 4px 6px rgba(0,0,0,0.15); }
+    .md-btn-text { color: #10b981; padding: 10px 16px; background: transparent; }
+    .md-btn-text:hover { background-color: #ecfdf5; }
+
+    /* Icons (Material Symbols) setup for Filled */
+    .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+
+    /* Star Rating */
+    .star-rating span { color: #cbd5e1; cursor: pointer; font-size: 28px; transition: color 0.2s; font-variation-settings: 'FILL' 0; }
+    .star-rating span.active, .star-rating span:hover { color: #fbbf24; font-variation-settings: 'FILL' 1; }
+
+    /* Loading Overlay */
+    .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.8); backdrop-filter: blur(4px); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; }
+    .md-spinner { width: 48px; height: 48px; border: 4px solid #e2e8f0; border-top: 4px solid #10b981; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* A4 Document */
+    .a4-container { width: 210mm; min-height: 297mm; padding: 20mm; margin: 2rem auto; background: white; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-radius: 8px; }
+    @media print { .a4-container { box-shadow: none; margin: 0; width: 100%; border-radius: 0; } body { background: white; } .no-print { display: none !important; } }
   </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans">
+<body class="antialiased">
 
   <!-- Loading -->
   <div id="loading" class="loading-overlay">
-    <div class="loader mb-4"></div>
-    <p class="font-semibold text-gray-600 animate-pulse">Đang xử lý dữ liệu...</p>
+    <div class="md-spinner mb-4"></div>
+    <p class="font-medium text-gray-600 text-lg">Đang xử lý...</p>
+  </div>
+
+  <!-- Toast Snackbar -->
+  <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg transition-all duration-300 opacity-0 translate-y-8 pointer-events-none z-50">
+    <span class="material-symbols-outlined" id="toast-icon"></span>
+    <span id="toast-msg" class="font-medium text-sm"></span>
+  </div>
+
+  <!-- Confirm Dialog Modal -->
+  <div id="confirm-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-2xl p-6 w-[400px] shadow-2xl transform scale-95 transition-transform duration-300" id="confirm-box">
+      <h3 class="text-xl font-semibold mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-red-500">warning</span>Xác nhận</h3>
+      <p class="text-gray-600 mb-8" id="confirm-message">Bạn có chắc chắn?</p>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeConfirm()" class="md-btn md-btn-text text-gray-600 hover:bg-gray-100">Hủy</button>
+        <button id="confirm-yes-btn" class="md-btn md-btn-danger">Đồng ý</button>
+      </div>
+    </div>
   </div>
 
   <!-- Login Section -->
-  <section id="login-sec" class="min-h-screen flex items-center justify-center hidden">
-    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border-t-4 border-sport">
-      <h2 class="text-2xl font-bold text-center mb-6 text-slate-800">Đăng Nhập Hệ Thống<br><span class="text-sport text-xl">Pickleball Eval</span></h2>
-      <form id="login-form" class="space-y-4">
-        <div><label class="block text-sm font-medium">Tên đăng nhập</label><input type="text" id="username" class="mt-1 w-full border rounded p-2 focus:ring-2 focus:ring-sport" required></div>
-        <div><label class="block text-sm font-medium">Mật khẩu</label><input type="password" id="password" class="mt-1 w-full border rounded p-2 focus:ring-2 focus:ring-sport" required></div>
-        <button type="submit" class="w-full bg-sport text-slate-900 font-bold py-2 rounded hover:brightness-105 transition">Đăng nhập</button>
+  <section id="login-sec" class="min-h-screen flex items-center justify-center p-4 hidden bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+    <div class="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] w-full max-w-md border-t-8 border-emerald-500">
+      <div class="text-center mb-8">
+        <span class="material-symbols-outlined text-emerald-500 text-5xl mb-2">sports_tennis</span>
+        <h2 class="text-2xl font-bold text-slate-800">Pickleball Eval</h2>
+        <p class="text-sm text-gray-500 mt-1">Đăng nhập để vào hệ thống</p>
+      </div>
+      <form id="login-form" class="space-y-5">
+        <div>
+          <label class="md-label">Tên đăng nhập</label>
+          <input type="text" id="username" class="md-input" placeholder="Nhập tài khoản" required>
+        </div>
+        <div>
+          <label class="md-label">Mật khẩu</label>
+          <input type="password" id="password" class="md-input" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="md-btn md-btn-primary w-full py-3 mt-4 text-lg">
+          Đăng nhập <span class="material-symbols-outlined text-sm">login</span>
+        </button>
       </form>
     </div>
   </section>
 
   <!-- Dashboard Section -->
   <section id="dash-sec" class="hidden max-w-6xl mx-auto p-4 md:p-8">
-    <div class="flex justify-between items-center mb-8">
-      <h1 class="text-3xl font-bold text-slate-800 border-l-4 border-sport pl-3">Danh sách Báo cáo</h1>
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
       <div>
-        <button onclick="showForm()" class="bg-sport text-slate-900 font-bold px-4 py-2 rounded mr-2"><i class="fas fa-plus mr-1"></i> Tạo mới</button>
-        <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded"><i class="fas fa-sign-out-alt"></i></button>
+        <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Danh sách Báo cáo</h1>
+        <p class="text-gray-500 text-sm mt-1">Quản lý hồ sơ đánh giá năng lực học viên</p>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="showForm()" class="md-btn md-btn-primary">
+          <span class="material-symbols-outlined">add</span> Tạo mới
+        </button>
+        <button onclick="logout()" class="md-btn md-btn-outline" title="Đăng xuất">
+          <span class="material-symbols-outlined text-gray-600">logout</span>
+        </button>
       </div>
     </div>
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-      <table class="w-full text-left border-collapse">
-        <thead class="bg-slate-800 text-white"><tr><th class="p-3">Mã BC</th><th class="p-3">Học viên</th><th class="p-3">SĐT</th><th class="p-3">Ngày đánh giá</th><th class="p-3 text-center">Thao tác</th></tr></thead>
-        <tbody id="report-list" class="divide-y"></tbody>
-      </table>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="p-4 font-semibold text-gray-600">Mã BC</th>
+              <th class="p-4 font-semibold text-gray-600">Học viên</th>
+              <th class="p-4 font-semibold text-gray-600">Số điện thoại</th>
+              <th class="p-4 font-semibold text-gray-600">Ngày đánh giá</th>
+              <th class="p-4 font-semibold text-gray-600 text-center">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="report-list" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
   <!-- Form Section -->
   <section id="form-sec" class="hidden max-w-4xl mx-auto p-4 md:p-8">
-    <button onclick="showDash()" class="text-gray-500 mb-4 hover:text-gray-800"><i class="fas fa-arrow-left"></i> Quay lại</button>
-    <div class="bg-white p-6 rounded-lg shadow-lg">
-      <h2 class="text-2xl font-bold mb-6 border-b pb-2" id="form-title">Tạo báo cáo mới</h2>
+    <button onclick="showDash()" class="md-btn md-btn-text mb-6 pl-0 text-gray-600 hover:text-emerald-600 hover:bg-transparent">
+      <span class="material-symbols-outlined">arrow_back</span> Quay lại
+    </button>
+    <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+      <h2 class="text-2xl font-bold mb-8 text-slate-800" id="form-title">Tạo báo cáo mới</h2>
       <form id="report-form">
         <input type="hidden" id="MaBaoCao">
         
         <!-- Step 1 -->
         <div id="step-1">
-          <h3 class="text-lg font-bold bg-sport text-slate-900 p-2 rounded mb-4">Phần 1: Thông tin học viên</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label class="block text-sm">Tên học viên *</label><input type="text" id="TenHocVien" required class="w-full border p-2 rounded mt-1"></div>
-            <div><label class="block text-sm">Số điện thoại *</label><input type="tel" pattern="[0-9]{10,11}" id="SoDienThoai" required class="w-full border p-2 rounded mt-1"></div>
-            <div><label class="block text-sm">Ngày đánh giá</label><input type="date" id="NgayDanhGia" required class="w-full border p-2 rounded mt-1"></div>
-            <div><label class="block text-sm">Thời gian đã chơi</label><input type="text" id="ThoiGianDaChoi" class="w-full border p-2 rounded mt-1"></div>
-            <div><label class="block text-sm">Kinh nghiệm thể thao</label><input type="text" id="KinhNghiemTheThao" class="w-full border p-2 rounded mt-1"></div>
-            <div><label class="block text-sm">Tần suất hiện tại (buổi/tuần)</label><input type="number" id="TanSuatHienTai" class="w-full border p-2 rounded mt-1"></div>
-            <div><label class="block text-sm">Tay thuận</label><select id="TayThuan" class="w-full border p-2 rounded mt-1"><option>Tay phải</option><option>Tay trái</option></select></div>
-            <div><label class="block text-sm">Hình thức chơi</label><select id="HinhThucChoi" class="w-full border p-2 rounded mt-1"><option>Giải trí</option><option>Giao lưu</option><option>Thi đấu</option></select></div>
-            <div><label class="block text-sm">Thời lượng buổi đánh giá (phút)</label><input type="number" id="ThoiLuongBuoiDanhGia" class="w-full border p-2 rounded mt-1"></div>
+          <div class="flex items-center gap-2 mb-6">
+            <div class="bg-emerald-100 text-emerald-700 w-8 h-8 rounded-full flex items-center justify-center font-bold">1</div>
+            <h3 class="text-xl font-semibold text-slate-800">Thông tin học viên</h3>
           </div>
-          <div class="mt-4 space-y-4">
-            <div><label class="block text-sm">Mục tiêu học viên</label><textarea id="MucTieuHocVien" class="w-full border p-2 rounded mt-1"></textarea></div>
-            <div><label class="block text-sm">Mục tiêu ưu tiên</label><textarea id="MucTieuUuTienHocVien" class="w-full border p-2 rounded mt-1"></textarea></div>
-            <div><label class="block text-sm">Mục tiêu khác</label><textarea id="MucTieuKhac" class="w-full border p-2 rounded mt-1"></textarea></div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div><label class="md-label">Tên học viên *</label><input type="text" id="TenHocVien" class="md-input" required></div>
+            <div><label class="md-label">Số điện thoại *</label><input type="tel" pattern="[0-9]{10,11}" id="SoDienThoai" class="md-input" required></div>
+            <div><label class="md-label">Ngày đánh giá</label><input type="date" id="NgayDanhGia" class="md-input" required></div>
+            <div><label class="md-label">Thời gian đã chơi</label><input type="text" id="ThoiGianDaChoi" class="md-input" placeholder="VD: 3 tháng, 1 năm..."></div>
+            <div><label class="md-label">Kinh nghiệm thể thao</label><input type="text" id="KinhNghiemTheThao" class="md-input" placeholder="VD: Tennis, Cầu lông..."></div>
+            <div><label class="md-label">Tần suất hiện tại (buổi/tuần)</label><input type="number" id="TanSuatHienTai" class="md-input"></div>
+            <div><label class="md-label">Tay thuận</label><select id="TayThuan" class="md-input bg-white"><option>Tay phải</option><option>Tay trái</option></select></div>
+            <div><label class="md-label">Hình thức chơi</label><select id="HinhThucChoi" class="md-input bg-white"><option>Giải trí</option><option>Giao lưu</option><option>Thi đấu</option></select></div>
+            <div><label class="md-label">Thời lượng buổi đánh giá (phút)</label><input type="number" id="ThoiLuongBuoiDanhGia" class="md-input"></div>
           </div>
-          <div class="mt-6 flex justify-end"><button type="button" onclick="nextStep()" class="bg-blue-600 text-white px-6 py-2 rounded">Tiếp tục <i class="fas fa-arrow-right"></i></button></div>
+          <div class="mt-5 space-y-5">
+            <div><label class="md-label">Mục tiêu tổng quát</label><textarea id="MucTieuHocVien" class="md-input h-24 resize-none"></textarea></div>
+            <div><label class="md-label">Mục tiêu ưu tiên</label><textarea id="MucTieuUuTienHocVien" class="md-input h-20 resize-none"></textarea></div>
+            <div><label class="md-label">Mục tiêu khác</label><textarea id="MucTieuKhac" class="md-input h-20 resize-none"></textarea></div>
+          </div>
+          <div class="mt-8 flex justify-end">
+            <button type="button" onclick="nextStep()" class="md-btn md-btn-primary">
+              Tiếp tục <span class="material-symbols-outlined">arrow_forward</span>
+            </button>
+          </div>
         </div>
 
         <!-- Step 2 -->
         <div id="step-2" class="hidden">
-          <h3 class="text-lg font-bold bg-sport text-slate-900 p-2 rounded mb-4">Phần 2: Nhận định tổng quan & Chỉ số</h3>
-          <div class="grid grid-cols-1 gap-4 mb-6">
-            <div><label class="block text-sm">Nền tảng</label><select id="TQ_NenTang" class="w-full border p-2 rounded mt-1"><option>Mới bắt đầu</option><option>Cơ bản</option><option>Khá</option><option>Trung cấp</option><option>Nâng cao</option></select></div>
-            <div><label class="block text-sm text-gray-500">Điểm mạnh (phân cách bằng dấu ; )</label><textarea id="TQ_DiemManh" class="w-full border p-2 rounded mt-1"></textarea></div>
-            <div><label class="block text-sm text-gray-500">Điểm yếu (phân cách bằng dấu ; )</label><textarea id="TQ_DiemYeu" class="w-full border p-2 rounded mt-1"></textarea></div>
+          <div class="flex items-center gap-2 mb-6">
+            <div class="bg-emerald-100 text-emerald-700 w-8 h-8 rounded-full flex items-center justify-center font-bold">2</div>
+            <h3 class="text-xl font-semibold text-slate-800">Nhận định tổng quan & Chỉ số</h3>
           </div>
-          <h4 class="font-bold mb-2">Đánh giá chỉ số (5 Sao)</h4>
+
+          <div class="grid grid-cols-1 gap-5 mb-8 p-6 bg-slate-50 rounded-2xl">
+            <div><label class="md-label">Nền tảng hiện tại</label><select id="TQ_NenTang" class="md-input bg-white"><option>Mới bắt đầu</option><option>Cơ bản</option><option>Khá</option><option>Trung cấp</option><option>Nâng cao</option></select></div>
+            <div><label class="md-label">Điểm mạnh <span class="text-gray-400 font-normal">(Phân cách mỗi ý bằng dấu chấm phẩy ;)</span></label><textarea id="TQ_DiemManh" class="md-input h-20"></textarea></div>
+            <div><label class="md-label">Điểm yếu <span class="text-gray-400 font-normal">(Phân cách mỗi ý bằng dấu chấm phẩy ;)</span></label><textarea id="TQ_DiemYeu" class="md-input h-20"></textarea></div>
+          </div>
+          
+          <h4 class="font-bold text-lg mb-4 text-slate-800">Đánh giá chỉ số (Thang điểm 5)</h4>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4" id="star-container">
             <!-- Stars JS Render -->
           </div>
-          <div class="mt-6 flex justify-between">
-            <button type="button" onclick="prevStep()" class="bg-gray-400 text-white px-6 py-2 rounded"><i class="fas fa-arrow-left"></i> Quay lại</button>
-            <button type="submit" class="bg-green-600 text-white font-bold px-6 py-2 rounded"><i class="fas fa-save"></i> Hoàn thành & Lưu</button>
+          <div class="mt-10 flex justify-between">
+            <button type="button" onclick="prevStep()" class="md-btn md-btn-outline">
+              <span class="material-symbols-outlined">arrow_back</span> Quay lại
+            </button>
+            <button type="submit" class="md-btn md-btn-primary px-8">
+              <span class="material-symbols-outlined">save</span> Hoàn thành & Lưu
+            </button>
           </div>
         </div>
       </form>
@@ -115,64 +215,98 @@
   </section>
 
   <!-- View Report Section (A4) -->
-  <section id="view-sec" class="hidden p-4 bg-gray-200 min-h-screen">
-    <div class="max-w-4xl mx-auto flex gap-2 justify-end mb-4 no-print" id="view-controls">
-      <button onclick="showDash()" class="bg-gray-600 text-white px-4 py-2 rounded"><i class="fas fa-home"></i> Trang chủ</button>
-      <button onclick="editCurrentReport()" class="bg-blue-600 text-white px-4 py-2 rounded" id="btn-edit"><i class="fas fa-edit"></i> Sửa</button>
-      <button onclick="exportPDF()" class="bg-red-600 text-white px-4 py-2 rounded"><i class="fas fa-file-pdf"></i> Tải PDF</button>
-      <button onclick="shareLink()" class="bg-sport text-slate-900 font-bold px-4 py-2 rounded"><i class="fas fa-link"></i> Copy Link</button>
+  <section id="view-sec" class="hidden pb-10 bg-slate-100 min-h-screen">
+    <!-- Toolbar -->
+    <div class="sticky top-0 bg-white shadow-sm border-b border-gray-200 p-4 mb-6 z-40 no-print flex justify-between md:justify-center gap-3">
+      <button onclick="showDash()" class="md-btn md-btn-outline bg-white"><span class="material-symbols-outlined">home</span> <span class="hidden md:inline">Trang chủ</span></button>
+      <button onclick="editCurrentReport()" class="md-btn md-btn-primary" id="btn-edit" style="background-color: #3b82f6;"><span class="material-symbols-outlined">edit_document</span> Sửa báo cáo</button>
+      <button onclick="exportPDF()" class="md-btn md-btn-danger"><span class="material-symbols-outlined">picture_as_pdf</span> Tải PDF</button>
+      <button onclick="shareLink()" class="md-btn md-btn-primary"><span class="material-symbols-outlined">link</span> Copy Link</button>
     </div>
     
-    <div id="a4-report" class="a4-container text-slate-800">
-      <div class="border-b-4 border-sport pb-6 mb-6 flex justify-between items-end">
+    <!-- Document A4 -->
+    <div id="a4-report" class="a4-container text-slate-800 relative">
+      <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500 rounded-bl-full opacity-10 no-print"></div>
+      
+      <div class="border-b-4 border-emerald-500 pb-6 mb-8 flex justify-between items-end">
         <div>
-          <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">BÁO CÁO ĐÁNH GIÁ NĂNG LỰC</h1>
-          <h2 class="text-xl font-bold text-sport mt-1">PICKLEBALL ACADEMY</h2>
+          <h1 class="text-4xl font-black text-slate-900 tracking-tight">BÁO CÁO NĂNG LỰC</h1>
+          <h2 class="text-2xl font-bold text-emerald-600 mt-2 tracking-wide">PICKLEBALL ACADEMY</h2>
         </div>
-        <div class="text-right text-sm">
-          <p><strong>Ngày ĐG:</strong> <span id="v-ngay"></span></p>
-          <p><strong>Mã BC:</strong> <span id="v-ma"></span></p>
+        <div class="text-right text-sm text-gray-600">
+          <p>Ngày ĐG: <span id="v-ngay" class="font-bold text-gray-900"></span></p>
+          <p>Mã BC: <span id="v-ma" class="font-bold text-gray-900"></span></p>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-8 mb-8">
+      <div class="grid grid-cols-2 gap-10 mb-10">
         <div>
-          <h3 class="font-bold text-lg border-l-4 border-sport pl-2 mb-3 bg-gray-100 p-1">1. THÔNG TIN HỌC VIÊN</h3>
-          <ul class="space-y-2 text-sm">
-            <li><strong>Họ & Tên:</strong> <span id="v-ten" class="text-lg text-blue-700 font-bold uppercase"></span></li>
-            <li><strong>Số điện thoại:</strong> <span id="v-sdt"></span></li>
-            <li><strong>Hình thức:</strong> <span id="v-hinhthuc"></span> | <strong>Tay thuận:</strong> <span id="v-tay"></span></li>
-            <li><strong>Kinh nghiệm TT:</strong> <span id="v-kn"></span></li>
-            <li><strong>Thời gian chơi PB:</strong> <span id="v-tg"></span> (Tần suất: <span id="v-ts"></span>)</li>
+          <div class="flex items-center gap-2 border-l-4 border-emerald-500 pl-3 mb-4">
+            <span class="material-symbols-outlined text-emerald-600">person</span>
+            <h3 class="font-bold text-xl uppercase text-slate-800">Thông tin học viên</h3>
+          </div>
+          <ul class="space-y-3 text-[15px]">
+            <li class="flex items-center justify-between border-b border-gray-100 pb-2">
+              <span class="text-gray-500">Họ & Tên:</span> <span id="v-ten" class="text-xl text-slate-900 font-bold uppercase"></span>
+            </li>
+            <li class="flex justify-between border-b border-gray-100 pb-1">
+              <span class="text-gray-500">Số điện thoại:</span> <span id="v-sdt" class="font-medium"></span>
+            </li>
+            <li class="flex justify-between border-b border-gray-100 pb-1">
+              <span class="text-gray-500">Tay thuận:</span> <span id="v-tay" class="font-medium"></span>
+            </li>
+            <li class="flex justify-between border-b border-gray-100 pb-1">
+              <span class="text-gray-500">Hình thức chơi:</span> <span id="v-hinhthuc" class="font-medium bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-sm"></span>
+            </li>
+            <li class="flex justify-between border-b border-gray-100 pb-1">
+              <span class="text-gray-500">Kinh nghiệm:</span> <span id="v-kn" class="font-medium"></span>
+            </li>
+            <li class="flex justify-between pb-1">
+              <span class="text-gray-500">Thời gian đánh PB:</span> <span class="font-medium"><span id="v-tg"></span> (<span id="v-ts"></span>)</span>
+            </li>
           </ul>
         </div>
         <div>
-          <h3 class="font-bold text-lg border-l-4 border-sport pl-2 mb-3 bg-gray-100 p-1">MỤC TIÊU</h3>
-          <div class="text-sm bg-blue-50 p-3 rounded h-full">
-            <p><strong>Ưu tiên:</strong> <span id="v-mtuu"></span></p>
-            <p class="mt-2"><strong>Tổng quát:</strong> <span id="v-mt"></span></p>
+          <div class="flex items-center gap-2 border-l-4 border-emerald-500 pl-3 mb-4">
+            <span class="material-symbols-outlined text-emerald-600">flag</span>
+            <h3 class="font-bold text-xl uppercase text-slate-800">Mục tiêu</h3>
+          </div>
+          <div class="text-[15px] bg-slate-50 border border-slate-200 p-5 rounded-xl h-auto min-h-[180px]">
+            <p class="text-emerald-700 font-bold mb-1">Mục tiêu ưu tiên:</p>
+            <p id="v-mtuu" class="mb-4 text-slate-700"></p>
+            <p class="text-emerald-700 font-bold mb-1">Mục tiêu tổng quát:</p>
+            <p id="v-mt" class="text-slate-700"></p>
           </div>
         </div>
       </div>
 
-      <div class="mb-8">
-        <h3 class="font-bold text-lg border-l-4 border-sport pl-2 mb-3 bg-gray-100 p-1">2. NHẬN ĐỊNH TỔNG QUAN</h3>
-        <p class="mb-3 text-sm"><strong>Nền tảng:</strong> <span id="v-nentang" class="bg-sport text-slate-900 px-2 py-1 rounded font-bold"></span></p>
-        <div class="grid grid-cols-2 gap-6 text-sm">
-          <div class="bg-green-50 p-4 rounded border border-green-200">
-            <h4 class="font-bold text-green-700 mb-2"><i class="fas fa-plus-circle"></i> ĐIỂM MẠNH</h4>
-            <ul id="v-diemmanh" class="list-disc pl-4 space-y-1"></ul>
+      <div class="mb-10">
+        <div class="flex items-center gap-2 border-l-4 border-emerald-500 pl-3 mb-5">
+          <span class="material-symbols-outlined text-emerald-600">psychology</span>
+          <h3 class="font-bold text-xl uppercase text-slate-800">Nhận định tổng quan</h3>
+        </div>
+        <p class="mb-5 text-[15px] flex items-center gap-2">
+          <span class="text-gray-500">Nền tảng đánh giá:</span> 
+          <span id="v-nentang" class="bg-emerald-500 text-white px-3 py-1 rounded-full font-bold text-sm"></span>
+        </p>
+        <div class="grid grid-cols-2 gap-8 text-[15px]">
+          <div class="bg-green-50/50 p-5 rounded-xl border border-green-100">
+            <h4 class="font-bold text-green-700 mb-3 flex items-center gap-2"><span class="material-symbols-outlined filled text-green-600">add_circle</span> ĐIỂM MẠNH</h4>
+            <ul id="v-diemmanh" class="list-disc pl-5 space-y-2 text-slate-700 marker:text-green-500"></ul>
           </div>
-          <div class="bg-red-50 p-4 rounded border border-red-200">
-            <h4 class="font-bold text-red-700 mb-2"><i class="fas fa-minus-circle"></i> ĐIỂM YẾU</h4>
-            <ul id="v-diemyeu" class="list-disc pl-4 space-y-1"></ul>
+          <div class="bg-red-50/50 p-5 rounded-xl border border-red-100">
+            <h4 class="font-bold text-red-700 mb-3 flex items-center gap-2"><span class="material-symbols-outlined filled text-red-600">remove_circle</span> ĐIỂM YẾU</h4>
+            <ul id="v-diemyeu" class="list-disc pl-5 space-y-2 text-slate-700 marker:text-red-500"></ul>
           </div>
         </div>
       </div>
 
       <div>
-        <h3 class="font-bold text-lg border-l-4 border-sport pl-2 mb-3 bg-gray-100 p-1">3. BIỂU ĐỒ CHỈ SỐ NĂNG LỰC</h3>
-        <div class="w-full flex justify-center mt-6 h-80">
+        <div class="flex items-center gap-2 border-l-4 border-emerald-500 pl-3 mb-2">
+          <span class="material-symbols-outlined text-emerald-600">radar</span>
+          <h3 class="font-bold text-xl uppercase text-slate-800">Biểu đồ chỉ số</h3>
+        </div>
+        <div class="w-full flex justify-center mt-4 h-[350px]">
           <canvas id="radarChart"></canvas>
         </div>
       </div>
@@ -180,8 +314,9 @@
   </section>
 
 <script>
-  // ĐIỀN URL WEB APP GOOGLE APPS SCRIPT VÀO ĐÂY
+  // ---------- CẬP NHẬT URL TẠI ĐÂY ----------
   const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzob19qGqg-CXvYLLoau0EtSmeCGHLiJTUwOpVGfTbMOfE-TNHMD_Lcb5UScf5zAHrpag/exec'; 
+  // ------------------------------------------
 
   const metrics = [
     {id: 'CS_KyThuatCoBan', name: 'Kỹ thuật cơ bản'}, {id: 'CS_DoOnDinh', name: 'Độ ổn định'},
@@ -192,15 +327,56 @@
   ];
   let currentReportData = null;
   let chartInstance = null;
+  let confirmCallback = null;
 
-  // Khởi tạo giao diện
+  /* UI Helpers (Toast, Dialog, Loading) */
+  function showLoading(state) { document.getElementById('loading').style.display = state ? 'flex' : 'none'; }
+  
+  function showToast(msg, type = 'info') {
+    const t = document.getElementById('toast');
+    const icon = document.getElementById('toast-icon');
+    document.getElementById('toast-msg').innerText = msg;
+    
+    t.className = 'fixed bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg transition-all duration-300 z-50 text-white font-sans';
+    
+    if(type === 'success') { t.classList.add('bg-emerald-600'); icon.innerText = 'check_circle'; icon.classList.add('filled'); }
+    else if(type === 'error') { t.classList.add('bg-red-600'); icon.innerText = 'error'; icon.classList.add('filled'); }
+    else { t.classList.add('bg-slate-800'); icon.innerText = 'info'; }
+    
+    t.classList.remove('opacity-0', 'translate-y-8');
+    setTimeout(() => t.classList.add('opacity-0', 'translate-y-8'), 3500);
+  }
+
+  function showConfirm(msg, callback) {
+    document.getElementById('confirm-message').innerText = msg;
+    const modal = document.getElementById('confirm-modal');
+    const box = document.getElementById('confirm-box');
+    modal.classList.remove('hidden');
+    // Delay for transition
+    setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); }, 10);
+    confirmCallback = callback;
+  }
+
+  function closeConfirm() {
+    const modal = document.getElementById('confirm-modal');
+    const box = document.getElementById('confirm-box');
+    modal.classList.add('opacity-0'); box.classList.add('scale-95');
+    setTimeout(() => { modal.classList.add('hidden'); confirmCallback = null; }, 300);
+  }
+
+  document.getElementById('confirm-yes-btn').onclick = () => {
+    if(confirmCallback) confirmCallback();
+    closeConfirm();
+  };
+
+  /* Khởi tạo */
   window.onload = () => {
     renderStars();
     const urlParams = new URLSearchParams(window.location.search);
     const publicId = urlParams.get('id');
     
     if (publicId) {
-      document.getElementById('view-controls').innerHTML = `<button onclick="exportPDF()" class="bg-red-600 text-white px-4 py-2 rounded"><i class="fas fa-file-pdf"></i> Tải PDF</button>`;
+      document.getElementById('btn-edit').style.display = 'none'; // Hide edit in public link
       loadReportData(publicId, true);
     } else {
       if (localStorage.getItem('pb_user')) showDash();
@@ -211,11 +387,12 @@
   function switchSec(id) {
     ['login-sec', 'dash-sec', 'form-sec', 'view-sec'].forEach(s => document.getElementById(s).classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
+    window.scrollTo(0,0);
   }
-  function showLoading(state) { document.getElementById('loading').style.display = state ? 'flex' : 'none'; }
+  
   function logout() { localStorage.removeItem('pb_user'); window.location.href = '?'; }
 
-  // Giao tiếp Backend
+  // API Call
   async function apiCall(action, data = {}) {
     showLoading(true);
     try {
@@ -229,7 +406,8 @@
       return json;
     } catch(e) {
       showLoading(false);
-      alert('Lỗi kết nối máy chủ!'); return { success: false };
+      showToast('Lỗi kết nối máy chủ!', 'error'); 
+      return { success: false };
     }
   }
 
@@ -243,8 +421,9 @@
     let res = await apiCall('login', {username: u, password: md5p});
     if (res.success) {
       localStorage.setItem('pb_user', JSON.stringify(res.user));
+      showToast('Đăng nhập thành công', 'success');
       showDash();
-    } else alert(res.message);
+    } else showToast(res.message, 'error');
   };
 
   // Dashboard
@@ -254,21 +433,21 @@
     if (res.success) {
       const tbody = document.getElementById('report-list');
       tbody.innerHTML = res.data.map(r => `
-        <tr class="hover:bg-gray-50">
-          <td class="p-3 border-b text-blue-600 font-bold cursor-pointer" onclick="loadReportData('${r.MaBaoCao}')">${r.MaBaoCao}</td>
-          <td class="p-3 border-b">${r.TenHocVien}</td>
-          <td class="p-3 border-b">${r.SoDienThoai}</td>
-          <td class="p-3 border-b">${new Date(r.NgayDanhGia).toLocaleDateString('vi-VN')}</td>
-          <td class="p-3 border-b text-center">
-            <button onclick="loadReportData('${r.MaBaoCao}')" class="text-blue-500 mr-3" title="Xem"><i class="fas fa-eye"></i></button>
-            <button onclick="deleteRep('${r.MaBaoCao}')" class="text-red-500" title="Xoá"><i class="fas fa-trash"></i></button>
+        <tr class="hover:bg-slate-50 transition-colors group">
+          <td class="p-4 border-b border-gray-100 text-emerald-600 font-bold cursor-pointer" onclick="loadReportData('${r.MaBaoCao}')">${r.MaBaoCao}</td>
+          <td class="p-4 border-b border-gray-100 font-medium text-slate-800">${r.TenHocVien}</td>
+          <td class="p-4 border-b border-gray-100 text-gray-600">${r.SoDienThoai}</td>
+          <td class="p-4 border-b border-gray-100 text-gray-600">${new Date(r.NgayDanhGia).toLocaleDateString('vi-VN')}</td>
+          <td class="p-4 border-b border-gray-100 text-center">
+            <button onclick="loadReportData('${r.MaBaoCao}')" class="text-blue-500 hover:bg-blue-50 p-2 rounded-full mr-1 transition" title="Xem báo cáo"><span class="material-symbols-outlined">visibility</span></button>
+            <button onclick="deleteRep('${r.MaBaoCao}')" class="text-red-500 hover:bg-red-50 p-2 rounded-full transition" title="Xoá báo cáo"><span class="material-symbols-outlined">delete</span></button>
           </td>
         </tr>
       `).join('');
     }
   }
 
-  // Form Xử lý
+  // Form Process
   function showForm(isEdit = false) {
     switchSec('form-sec');
     document.getElementById('step-1').classList.remove('hidden');
@@ -280,29 +459,32 @@
       document.getElementById('NgayDanhGia').valueAsDate = new Date();
       resetStars();
     } else {
-      document.getElementById('form-title').innerText = 'Chỉnh sửa Báo Cáo: ' + currentReportData.MaBaoCao;
+      document.getElementById('form-title').innerText = 'Chỉnh sửa: ' + currentReportData.MaBaoCao;
     }
   }
+  
   function nextStep() {
     if(!document.getElementById('TenHocVien').checkValidity() || !document.getElementById('SoDienThoai').checkValidity()){
-      alert("Vui lòng nhập đúng Tên học viên và Số điện thoại hợp lệ."); return;
+      showToast("Vui lòng nhập Tên học viên và Số điện thoại hợp lệ.", 'error'); return;
     }
     document.getElementById('step-1').classList.add('hidden');
     document.getElementById('step-2').classList.remove('hidden');
+    window.scrollTo(0,0);
   }
   function prevStep() {
     document.getElementById('step-2').classList.add('hidden');
     document.getElementById('step-1').classList.remove('hidden');
+    window.scrollTo(0,0);
   }
 
   // Render Rating 5 sao
   function renderStars() {
     const container = document.getElementById('star-container');
     container.innerHTML = metrics.map(m => `
-      <div class="flex justify-between items-center bg-gray-50 p-2 rounded border">
-        <span class="text-sm font-medium">${m.name}</span>
-        <div class="star-rating" data-id="${m.id}" data-val="0">
-          ${[1,2,3,4,5].map(i => `<i class="fas fa-star" onclick="setStar('${m.id}', ${i})"></i>`).join('')}
+      <div class="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+        <span class="text-[15px] font-medium text-slate-700">${m.name}</span>
+        <div class="star-rating flex gap-1" data-id="${m.id}" data-val="0">
+          ${[1,2,3,4,5].map(i => `<span class="material-symbols-outlined" onclick="setStar('${m.id}', ${i})">star</span>`).join('')}
         </div>
       </div>
     `).join('');
@@ -310,12 +492,15 @@
   function setStar(id, val) {
     const parent = document.querySelector(`.star-rating[data-id="${id}"]`);
     parent.dataset.val = val;
-    let stars = parent.querySelectorAll('i');
-    stars.forEach((s, idx) => { s.classList.toggle('active', idx < val); });
+    let stars = parent.querySelectorAll('span');
+    stars.forEach((s, idx) => { 
+      if(idx < val) s.classList.add('active', 'filled');
+      else s.classList.remove('active', 'filled');
+    });
   }
   function resetStars() { metrics.forEach(m => setStar(m.id, 0)); }
 
-  // Submit
+  // Submit Data
   document.getElementById('report-form').onsubmit = async (e) => {
     e.preventDefault();
     let data = { MaBaoCao: document.getElementById('MaBaoCao').value };
@@ -327,19 +512,20 @@
 
     let res = await apiCall('saveReport', data);
     if(res.success) {
-      alert("Đã lưu báo cáo thành công!");
+      showToast("Đã lưu báo cáo thành công!", 'success');
       showDash();
-    } else alert(res.message);
+    } else showToast(res.message, 'error');
   };
 
   async function deleteRep(id) {
-    if(confirm(`Bạn có chắc muốn xoá báo cáo ${id}?`)) {
+    showConfirm(`Bạn có chắc muốn xoá báo cáo mã ${id} không? Dữ liệu không thể khôi phục.`, async () => {
       let res = await apiCall('deleteReport', {id});
-      if(res.success) showDash(); else alert(res.message);
-    }
+      if(res.success) { showToast('Đã xoá báo cáo', 'success'); showDash(); } 
+      else showToast(res.message, 'error');
+    });
   }
 
-  // View Report (A4)
+  // View Report
   async function loadReportData(id, isPublic = false) {
     let res = await apiCall('getReportById', {id});
     if(res.success) {
@@ -348,7 +534,7 @@
       fillReportUI(res.data);
       renderChart(res.data);
     } else {
-      alert("Không tìm thấy báo cáo!");
+      showToast("Không tìm thấy báo cáo!", 'error');
       if(!isPublic) showDash();
     }
   }
@@ -373,8 +559,9 @@
 
   function renderChart(d) {
     if(chartInstance) chartInstance.destroy();
-    const ctx = document.getElementById('radarChart').getContext('2d');
+    Chart.defaults.font.family = "'Roboto', sans-serif";
     
+    const ctx = document.getElementById('radarChart').getContext('2d');
     let labels = metrics.map(m => m.name);
     let vals = metrics.map(m => d[m.id] || 0);
 
@@ -383,15 +570,29 @@
       data: {
         labels: labels,
         datasets: [{
-          label: 'Mức độ', data: vals,
-          backgroundColor: 'rgba(180, 211, 48, 0.4)', borderColor: '#b4d330', pointBackgroundColor: '#1e293b',
-          pointBorderColor: '#fff', borderWidth: 2, pointRadius: 4
+          label: ' Mức độ năng lực', 
+          data: vals,
+          backgroundColor: 'rgba(16, 185, 129, 0.25)', 
+          borderColor: '#10b981', 
+          pointBackgroundColor: '#059669',
+          pointBorderColor: '#fff', 
+          borderWidth: 2, 
+          pointRadius: 5,
+          pointHoverRadius: 7
         }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        scales: { r: { min: 0, max: 5, ticks: { stepSize: 1, display: false }, pointLabels: { font: { size: 12, weight: 'bold' } } } },
-        plugins: { legend: { display: false } }
+        scales: { 
+          r: { 
+            min: 0, max: 5, 
+            ticks: { stepSize: 1, display: false }, 
+            grid: { color: 'rgba(0,0,0,0.05)' },
+            angleLines: { color: 'rgba(0,0,0,0.05)' },
+            pointLabels: { font: { size: 13, weight: '500' }, color: '#475569' } 
+          } 
+        },
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', padding: 10 } }
       }
     });
   }
@@ -412,16 +613,19 @@
     const element = document.getElementById('a4-report');
     const opt = {
       margin: 0, filename: `BaoCao_${currentReportData.MaBaoCao}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     html2pdf().set(opt).from(element).save();
+    showToast("Đang chuẩn bị file PDF...", 'info');
   }
 
   function shareLink() {
     const link = window.location.origin + window.location.pathname + '?id=' + currentReportData.MaBaoCao;
-    navigator.clipboard.writeText(link).then(() => { alert("Đã copy link báo cáo!"); });
+    navigator.clipboard.writeText(link).then(() => { 
+      showToast("Đã copy link báo cáo vào bộ nhớ tạm!", 'success'); 
+    });
   }
 </script>
 </body>
